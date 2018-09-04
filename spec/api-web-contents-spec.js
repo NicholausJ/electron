@@ -1,6 +1,7 @@
 'use strict'
 
 const assert = require('assert')
+const fs = require('fs')
 const http = require('http')
 const path = require('path')
 const { closeWindow } = require('./window-helpers')
@@ -797,6 +798,52 @@ describe('webContents module', () => {
         })
       })
       w.loadURL('about:blank')
+    })
+  })
+
+  describe('takeHeapSnapshot()', () => {
+    const filePath = path.join(remote.app.getPath('userData'), 'test.heapsnapshot')
+
+    afterEach(done => {
+      fs.unlink(filePath, () => done())
+    })
+
+    it('works with sandboxed renderers', async () => {
+      w.destroy()
+      w = new BrowserWindow({
+        show: false,
+        webPreferences: {
+          sandbox: true
+        }
+      })
+
+      w.loadURL('about:blank')
+      await emittedOnce(w.webContents, 'did-finish-load')
+
+      await w.webContents.takeHeapSnapshot(filePath)
+    })
+
+    it('fails with invalid file path', async () => {
+      w.destroy()
+      w = new BrowserWindow({
+        show: false,
+        webPreferences: {
+          sandbox: true
+        }
+      })
+
+      w.loadURL('about:blank')
+      await emittedOnce(w.webContents, 'did-finish-load')
+
+      let message
+
+      try {
+        await w.webContents.takeHeapSnapshot('')
+      } catch (error) {
+        message = error.message
+      }
+
+      expect(message).to.be.equal('takeHeapSnapshot failed')
     })
   })
 })

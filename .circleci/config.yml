@@ -7,7 +7,6 @@ linux-build-machine: &linux-build-machine
 mac-build-machine: &mac-build-machine
   macos:
     xcode: "8.3.3"
-  resource_class: meduim
 
 # Build configurations options.
 env-debug-build: &env-debug-build
@@ -114,7 +113,7 @@ step-persist-data-for-tests: &step-persist-data-for-tests
 
       # Build artifacts
       - src/out/Default/dist.zip
-      - src/out/Default/gen/node_headers
+      # - src/out/Default/gen/node_headers
       - src/out/ffmpeg/libffmpeg.so
 
 step-electron-dist-unzip: &step-electron-dist-unzip
@@ -177,6 +176,24 @@ step-setup-for-headless-testing: &step-setup-for-headless-testing
   run:
     name: Setup for headless testing
     command: sh -e /etc/init.d/xvfb start
+
+step-electron-tests-run: &step-electron-tests-run
+  run:
+    name: Run Electron tests
+    environment:
+      DISPLAY: ':99.0'
+      MOCHA_REPORTER: mocha-multi-reporters
+      MOCHA_FILE: junit/test-results.xml
+      MOCHA_MULTI_REPORTERS: mocha-junit-reporter, tap
+      ELECTRON_DISABLE_SECURITY_WARNINGS: 1
+    command: |
+      cd src
+      export ELECTRON_OUT_DIR=Default
+      (cd electron && npm run test -- --ci --enable-logging)
+
+step-electron-tests-store-results: &step-electron-tests-store-results
+  store_test_results:
+    path: src/junit
 
 step-show-sccache-stats: &step-show-sccache-stats
   run:
@@ -264,7 +281,7 @@ steps-testing-build: &steps-testing-build
     - <<: *step-ffmpeg-store  # (alexeykuzmin): Do we need to store it?
 
     # Node.js headers for tests
-    - <<: *step-nodejs-headers-build
+    # - <<: *step-nodejs-headers-build
 
     - <<: *step-show-sccache-stats
 
@@ -295,7 +312,7 @@ steps-release-build: &steps-release-build
     - <<: *step-maybe-native-mksnapshot-store
 
     # Node.js headers for tests
-    - <<: *step-nodejs-headers-build
+    # - <<: *step-nodejs-headers-build
 
     - <<: *step-show-sccache-stats
 
@@ -314,20 +331,8 @@ steps-tests: &steps-tests
 
     - <<: *step-setup-for-headless-testing
     - <<: *step-verify-ffmpeg
-    - run:
-        name: Run Electron tests
-        environment:
-          DISPLAY: ':99.0'
-          MOCHA_REPORTER: mocha-multi-reporters
-          MOCHA_FILE: junit/test-results.xml
-          MOCHA_MULTI_REPORTERS: mocha-junit-reporter, tap
-          ELECTRON_DISABLE_SECURITY_WARNINGS: 1
-        command: |
-          cd src
-          export ELECTRON_OUT_DIR=Default
-          (cd electron && npm run test -- --ci --enable-logging)
-    - store_test_results:
-        path: src/junit
+    - <<: *step-electron-tests-run
+    - <<: *step-electron-tests-store-results
 
 # TODO(alexeykuzmin): Use shared build steps defined above for Mac builds.
 mac-build-steps: &mac-build-steps
